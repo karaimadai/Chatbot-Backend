@@ -5,13 +5,14 @@ import re
 # 3️⃣ Load your document
 # ------------------------------------------------------------
 #file_path = "C:/Users/sridh/OneDrive/Desktop/LLM Projects/Handson Chatbot Creation/Sample text Document.txt"
-file_path = "C:/Users/sridh/OneDrive/Desktop/LLM Projects/Handson Chatbot Creation/ekom.txt"
+file_path = "./ekom.txt"
 
 if not os.path.exists(file_path):
     raise FileNotFoundError(f"❌ File not found: {file_path}")
 
 with open(file_path, "r", encoding="utf-8") as f:
     text_data = f.read()
+
 
 # ------------------------------------------------------------
 # 4️⃣ Split text into small chunks for simple retrieval
