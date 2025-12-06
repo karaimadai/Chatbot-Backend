@@ -9,6 +9,8 @@ import ollama
 from chromadb import Client as ChromaClient  # or your chroma client import
 import os
 from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
+
 
 from Vector_without_db import retrieve_context
 load_dotenv()
@@ -33,6 +35,14 @@ load_dotenv()
 #from ai_agent import graph, SYSTEM_PROMPT, parse_response
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["moneypluz.com"],  # Or replace "*" with your WordPress domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Step2: Receive and validate request from Frontend
 class Query(BaseModel):
