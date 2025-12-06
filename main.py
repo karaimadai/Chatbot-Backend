@@ -38,16 +38,17 @@ class Query(BaseModel):
 def health():
     return {"status": "ok", "model": MODEL_PROVIDER}
 
+
+
 @app.post("/ask")
 async def ask(query: Query):
     try:
         print("📩 User:", query.message)
 
-        # Get context from your RAG function
+        # Get RAG context
         context_text = retrieve_context(query.message)
         print("📚 Context length:", len(context_text))
 
-        # Build messages
         messages = [
             {
                 "role": "system",
@@ -59,7 +60,6 @@ async def ask(query: Query):
             {"role": "user", "content": query.message}
         ]
 
-        # Call Ollama Cloud
         print("☁️ Sending request to Cloud Ollama...")
 
         response = requests.post(
@@ -75,16 +75,27 @@ async def ask(query: Query):
             timeout=60
         )
 
+        print("📥 RAW RESPONSE STATUS:", response.status_code)
+        print("📥 RAW RESPONSE BODY:", response.text[:500])
+
         if response.status_code != 200:
-            print("❌ Cloud Error:", response.text)
-            raise HTTPException(status_code=500, detail=response.text)
+            return {"error": "cloud_error", "detail": response.text}
 
         data = response.json()
-        answer = data["choices"][0]["message"]["content"]
 
-        print("✅ Reply:", answer[:100], "...")
+        # handle empty results
+        try:
+            answer = data["choices"][0]["message"]["content"]
+        except:
+            answer = "(Empty response from model)"
 
-        return {"response": answer}
+        print("✅ Final Answer:", answer[:200])
+
+        # TEMP: return FULL CLOUD RESPONSE for debugging
+        return {
+            "response": answer,
+            "raw": data
+        }
 
     except Exception as e:
         print("🔥 ERROR /ask:", str(e))
