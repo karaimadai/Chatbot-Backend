@@ -1,54 +1,31 @@
-# ============================================
-# FASTAPI BACKEND — READY FOR RENDER + OLLAMA CLOUD
-# ============================================
+# =====================================================
+# FASTAPI + OLLAMA CLOUD VIA HTTPS (NOT OLLAMA SDK)
+# =====================================================
 
 import os
-import uvicorn
-import ollama
+import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-
 from Vector_without_db import retrieve_context
 
-# Load .env locally (ignored on Render)
+# Load env (local only)
 load_dotenv()
 
-# --------------------------------------------
-# Load Render Environment Variables
-# --------------------------------------------
-MODEL_PROVIDER = os.environ.get("MODEL_PROVIDER", "qwen3-coder:480b-cloud")
-OLLAMA_API_KEY = os.environ.get("OLLAMA_API_KEY")
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "https://api.ollama.com")
+# Environment variables from Render
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
+MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "qwen3-coder:480b-cloud")
 
 if not OLLAMA_API_KEY:
-    print("❌ ERROR: OLLAMA_API_KEY is missing. Cloud requests will fail.")
+    raise RuntimeError("OLLAMA_API_KEY is missing in Render environment variables")
 
-# --------------------------------------------
-# Initialize Cloud Ollama Client (compatible mode)
-# --------------------------------------------
-client = ollama.Client(
-    host=OLLAMA_HOST,
-    headers={ 
-        "Authorization": f"Bearer {OLLAMA_API_KEY}"
-    }
-)
-
-print("🌐 Ollama Cloud Client Initialized")
-print("🔧 HOST:", OLLAMA_HOST)
-print("🔑 API Key Present:", "YES" if OLLAMA_API_KEY else "NO")
-print("🤖 Using Model:", MODEL_PROVIDER)
-
-# --------------------------------------------
-# FastAPI App Setup
-# --------------------------------------------
+# FastAPI setup
 app = FastAPI()
 
-# Enable CORS (WordPress Safe)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],    
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,82 +34,58 @@ app.add_middleware(
 class Query(BaseModel):
     message: str
 
-# --------------------------------------------
-# HEALTH CHECK ENDPOINT
-# --------------------------------------------
 @app.get("/")
 def health():
-    return {
-        "status": "ok",
-        "model_provider": MODEL_PROVIDER,
-        "ollama_host": OLLAMA_HOST,
-    }
+    return {"status": "ok", "model": MODEL_PROVIDER}
 
-# --------------------------------------------
-# MAIN CHAT ENDPOINT
-# --------------------------------------------
 @app.post("/ask")
 async def ask(query: Query):
     try:
-        print("📩 User Query:", query.message)
+        print("📩 User:", query.message)
 
-        # 1. Retrieve context with RAG
+        # Get context from your RAG function
         context_text = retrieve_context(query.message)
-        print("📚 RAG Context Length:", len(context_text))
+        print("📚 Context length:", len(context_text))
 
-        # 2. Build chat messages
+        # Build messages
         messages = [
             {
                 "role": "system",
                 "content": (
-                    "Use ONLY the given context. If the context is not helpful, "
-                    "answer normally.\n\n"
+                    "Use ONLY the given context. If context is not useful, answer normally.\n\n"
                     f"### CONTEXT ###\n{context_text}\n### END CONTEXT ###"
-                ),
+                )
             },
-            {"role": "user", "content": query.message},
+            {"role": "user", "content": query.message}
         ]
 
-        # 3. Call Ollama Cloud
-        print("☁️ Calling Ollama Cloud model:", MODEL_PROVIDER)
+        # Call Ollama Cloud
+        print("☁️ Sending request to Cloud Ollama...")
 
-        resp = client.chat(
-            model=MODEL_PROVIDER,
-            messages=messages,
-            options={"temperature": 0.7}
+        response = requests.post(
+            "https://api.ollama.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OLLAMA_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": MODEL_PROVIDER,
+                "messages": messages,
+            },
+            timeout=60
         )
 
-        # 4. Extract answer safely
-        answer = None
+        if response.status_code != 200:
+            print("❌ Cloud Error:", response.text)
+            raise HTTPException(status_code=500, detail=response.text)
 
-        if isinstance(resp, dict):
-            # Standard Ollama Cloud schema
-            if "message" in resp:
-                answer = resp["message"].get("content")
+        data = response.json()
+        answer = data["choices"][0]["message"]["content"]
 
-            # Fallbacks
-            if not answer:
-                answer = (
-                    resp.get("output")
-                    or resp.get("content")
-                    or (resp.get("choices", [{}])[0]
-                        .get("message", {})
-                        .get("content"))
-                )
-
-        if not answer:
-            answer = "Sorry, I couldn't generate a response."
-
-        print("✅ Final Answer:", answer[:120], "...")
+        print("✅ Reply:", answer[:100], "...")
 
         return {"response": answer}
 
     except Exception as e:
-        print("🔥 ERROR IN /ask:", str(e))
+        print("🔥 ERROR /ask:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
-
-# --------------------------------------------
-# LOCAL DEV ENTRY POINT
-# --------------------------------------------
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
