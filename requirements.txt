@@ -3,5 +3,5 @@ uvicorn[standard]
 pydantic
 starlette
 python-dotenv
-ollama
+ollama>=0.4.4
 chromadb
