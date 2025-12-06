@@ -63,7 +63,7 @@ async def ask(query: Query):
         print("☁️ Sending request to Cloud Ollama...")
 
         response = requests.post(
-            "https://api.ollama.com/v1/chat/completions",
+            "https://cloud.ollama.com/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {OLLAMA_API_KEY}",
                 "Content-Type": "application/json",
