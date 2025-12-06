@@ -38,7 +38,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["moneypluz.com"],  # Or replace "*" with your WordPress domain
+    allow_origins=["*"],  # Or replace "*" with your WordPress domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
