@@ -8,10 +8,11 @@ import re
 file_path = "./ekom.txt"
 
 if not os.path.exists(file_path):
-    raise FileNotFoundError(f"❌ File not found: {file_path}")
-
-with open(file_path, "r", encoding="utf-8") as f:
-    text_data = f.read()
+    print("⚠️ WARNING: ekom.txt missing. Continuing with empty context.")
+    text_data = ""
+else:
+    with open(file_path, "r", encoding="utf-8") as f:
+        text_data = f.read()
 
 
 # ------------------------------------------------------------
